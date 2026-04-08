@@ -2,7 +2,7 @@ clear all
 close all
 %% 1. loading data
 % load current data
-C_run = readtable('Digital_Twin_Final_swapped1.csv'); 
+C_run = readtable('.csv'); 
 glucose_level = C_run.glucose_level;
 pace = C_run.pace;
 trend_glucose_level = C_run.trend_glucose_level;
@@ -14,7 +14,7 @@ time=C_run.time_str;
 time_min=minutes(time);
 
 % load past data
-P_run = readtable('Digital_Twin_Final_random1.csv');
+P_run = readtable('.csv');
 P_glucose_level = P_run.glucose_level;
 P_pace=P_run.pace;
 
@@ -60,4 +60,4 @@ end
 final_table = table(time_min, distance, glucose_level, pace, trend_glucose_level, glucose_needed,P_glucose_level, P_pace, future_pace, future_trend_glucose_level, future_glucose_needed);
 final_table2 = fillmissing(final_table, 'constant', 0, 'DataVariables', @isnumeric);
 
-writetable(final_table2, 'Digital_Twin_Stats_Export4.csv');
+writetable(final_table2, '.csv');
