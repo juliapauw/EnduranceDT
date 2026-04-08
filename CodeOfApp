@@ -1,0 +1,378 @@
+classdef AppDT < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        UIFigure                       matlab.ui.Figure
+        TabGroup                       matlab.ui.container.TabGroup
+        Home                           matlab.ui.container.Tab
+        RunLiveSimulationButton        matlab.ui.control.Button
+        RunDataGenerateInsightsButton  matlab.ui.control.Button
+        LiveRun                        matlab.ui.container.Tab
+        WatchPanel                     matlab.ui.container.Panel
+        DoneButton                     matlab.ui.control.Button
+        CloseButton                    matlab.ui.control.Button
+        Take25gcarbsLabel              matlab.ui.control.Label
+        FUELNOWLabel                   matlab.ui.control.Label
+        PostExcercise                  matlab.ui.container.Tab
+        ActionBox                      matlab.ui.control.TextArea
+        AdviceColor                    matlab.ui.control.Lamp
+        FuelLabel                      matlab.ui.control.Label
+        UIAxes_PR                      matlab.ui.control.UIAxes
+        PastComparison                 matlab.ui.container.Tab
+        UIAxes_COM                     matlab.ui.control.UIAxes
+        FuturePrediction               matlab.ui.container.Tab
+        AdviceTextArea                 matlab.ui.control.TextArea
+        PREDLabel                      matlab.ui.control.Label
+        UIAxes_PRED                    matlab.ui.control.UIAxes
+    end
+
+
+    properties (Access = private)
+    RunTimer          % timer object for simulation
+    SimData           % for data
+    CurrentRow = 1    % row 
+    AlertActive = false % sensitivity
+    end
+    
+    methods (Access = private)
+function updateSimulatie(app)
+    if app.CurrentRow <= height(app.SimData)
+        
+        % current glucose
+        C_glucose = app.SimData.glucose_level(app.CurrentRow);
+        
+        % show command window
+        fprintf('Row %d: Glucose is %.0f\n', app.CurrentRow, C_glucose);
+
+        % check with threshold 70 mg/dl (changeable) for 10 rows
+        if app.CurrentRow > 10
+            last_15_rows = app.SimData.glucose_level(app.CurrentRow-9 : app.CurrentRow);
+     
+            if mean(last_15_rows) < 100 && ~app.AlertActive
+                app.WatchPanel.Visible = 'on';
+                app.AlertActive = true;        
+                beep;
+                stop(app.RunTimer);            % Pause it
+            end
+        end
+        
+        app.CurrentRow = app.CurrentRow + 1;
+    else
+        stop(app.RunTimer);
+    end
+end
+    end
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Code that executes after component creation
+        function startupFcn(app)
+
+        end
+
+        % Button pushed function: RunDataGenerateInsightsButton
+        function RunDataGenerateInsightsButtonPushed(app, event)
+            % 1. load data
+data = readtable('.csv');
+app.TabGroup.SelectedTab = app.PostExcercise;
+
+%% post excercise
+% 1. Left axis
+yyaxis(app.UIAxes_PR, 'left');
+plot(app.UIAxes_PR, data.distance, data.glucose_level, 'b-', 'LineWidth', 2);
+xlabel(app.UIAxes_PR, 'Distance (km)');
+ylabel(app.UIAxes_PR, 'Glucose Level (mg/dL)');
+
+% 2. right axis
+yyaxis(app.UIAxes_PR, 'right');
+plot(app.UIAxes_PR, data.distance, data.pace, 'r', 'LineWidth',2);
+xlabel(app.UIAxes_PR, 'Distance (km)');
+ylabel(app.UIAxes_PR, 'Pace (min/km)');
+set(app.UIAxes_PR, 'YDir', 'reverse');
+
+% 3. determine the trend
+glucose_trend = data.trend_glucose_level;
+C_pace = data.pace(end);
+
+if C_pace < 5.81 & glucose_trend < -0.5
+    
+else
+    app.AdviceColor.Color = [0 0.6 0]; % green
+    app.ActionBox.Value = 'Between distance 0.8 and 1.3 km you had a steady pace. Took first fuel after this phase en recovered glucose and increased pace in -0,04 min/km';
+end
+
+%% past comparison
+% 1. Left axis
+yyaxis(app.UIAxes_COM, 'left');
+plot(app.UIAxes_COM, data.distance, data.pace, 'b', 'LineWidth', 2);
+xlabel(app.UIAxes_COM, 'Distance (km)');
+ylabel(app.UIAxes_COM, 'Pace (min/km)');
+set(app.UIAxes_COM, 'YDir', 'reverse');
+
+% 2. Right axis
+yyaxis(app.UIAxes_COM, 'right');
+plot(app.UIAxes_COM, data.distance, data.P_pace, 'r', 'LineWidth',2);
+xlabel(app.UIAxes_COM, 'Distance (km)');
+ylabel(app.UIAxes_COM, 'Pace (min/km)');
+set(app.UIAxes_COM, 'YDir', 'reverse');
+
+%% future Prediction
+% 1. stimulation of prediction line
+predicted_line = data.glucose_level + (data.future_trend_glucose_level * 2); % 2 min in future
+
+plot(app.UIAxes_PRED, data.distance, data.glucose_level, 'b', 'LineWidth', 1.5);
+hold(app.UIAxes_PRED, 'on');
+plot(app.UIAxes_PRED, data.distance, predicted_line, 'r-', 'LineWidth', 1.5);
+hold(app.UIAxes_PRED, 'off');
+
+title(app.UIAxes_PRED, 'Glucose Prediction');
+legend(app.UIAxes_PRED, 'Current', 'Predicted (Digital Twin)', 'Location', 'southwest');
+ylabel(app.UIAxes_PRED, 'Glucose (mg/dL)');
+xlabel(app.UIAxes_PRED, 'Distance (km)');
+
+C_glucose = data.glucose_level(end);
+TOTAL_SESSION_TIME=data.time_min(end);
+rest_time = max(0, TOTAL_SESSION_TIME - data.time_min(end));
+prediction_value = C_glucose + (data.future_trend_glucose_level(end) * rest_time);
+
+% 2. advice 
+glucose_threshold_low = 100;
+if prediction_value < glucose_threshold_low
+    app.PREDLabel.Text = 'DEOPTIMAL'; 
+    app.PREDLabel.FontColor = [1 0.4 0]; %orange
+    
+    % calculate shortage
+    shortage = glucose_threshold_low - prediction_value;
+    
+    app.AdviceTextArea.Value = sprintf(['DT Simulation: If you keep your goal pace in the next activity, ' ...
+        'the predicted final value will be %.0f mg/dL. This is to low. \n\n' ...
+        'Advice: Take %.0f gram extra carbs with you and divide this over the intensive pieces to avoid a dip.'], ...
+        prediction_value, shortage);
+else
+    app.PREDLabel.Text = 'OPTIMAAL';
+    app.PREDLabel.FontColor = [0.2 0.8 0.2]; %green
+    
+    app.AdviceTextArea.Value = sprintf(['DT Simulation: With an acceleration in the next activity' ...
+        'the glucose level expected to remain stable (expected final level: %.0f mg/dL). \n\n' ...
+        'Advice: Do not change your fuel strategy.'], ...
+        prediction_value);
+end
+
+        end
+
+        % Button pushed function: RunLiveSimulationButton
+        function RunLiveSimulationButtonPushed(app, event)
+
+    app.TabGroup.SelectedTab = app.LiveRun;
+
+    % 1. load data
+    app.SimData = readtable('.csv');
+    
+    % 2. reset 
+    app.CurrentRow = 1;
+    app.AlertActive = false;
+    app.WatchPanel.Visible = 'off'; 
+
+    % 3. start timer
+    app.RunTimer = timer('ExecutionMode', 'fixedRate', ...
+                         'Period', 0.1, ... 
+                         'TimerFcn', @(~,~) app.updateSimulatie());
+    start(app.RunTimer);
+
+        end
+
+        % Button pushed function: DoneButton
+        function DoneButtonPushed(app, event)
+
+    app.WatchPanel.Visible = 'off'; % not visible
+    app.AlertActive = false; % reset
+    start(app.RunTimer); % start 
+        end
+
+        % Button pushed function: CloseButton
+        function CloseButtonPushed(app, event)
+
+    app.WatchPanel.Visible = 'off'; % not visible
+    start(app.RunTimer); % start
+    app.CurrentRow = app.CurrentRow + 120; % skip for 2 minutes
+    app.AlertActive = false; % reset
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.Color = [0.9412 0.9137 0.9137];
+            app.UIFigure.Position = [100 100 640 480];
+            app.UIFigure.Name = 'MATLAB App';
+            app.UIFigure.Theme = 'light';
+
+            % Create TabGroup
+            app.TabGroup = uitabgroup(app.UIFigure);
+            app.TabGroup.Position = [20 40 594 337];
+
+            % Create Home
+            app.Home = uitab(app.TabGroup);
+            app.Home.Title = 'Home';
+            app.Home.BackgroundColor = [0.7098 0.6667 0.6667];
+
+            % Create RunDataGenerateInsightsButton
+            app.RunDataGenerateInsightsButton = uibutton(app.Home, 'push');
+            app.RunDataGenerateInsightsButton.ButtonPushedFcn = createCallbackFcn(app, @RunDataGenerateInsightsButtonPushed, true);
+            app.RunDataGenerateInsightsButton.BackgroundColor = [0.502 0.502 0.502];
+            app.RunDataGenerateInsightsButton.FontColor = [1 1 1];
+            app.RunDataGenerateInsightsButton.Position = [308 141 252 54];
+            app.RunDataGenerateInsightsButton.Text = 'Run Data & Generate Insights';
+
+            % Create RunLiveSimulationButton
+            app.RunLiveSimulationButton = uibutton(app.Home, 'push');
+            app.RunLiveSimulationButton.ButtonPushedFcn = createCallbackFcn(app, @RunLiveSimulationButtonPushed, true);
+            app.RunLiveSimulationButton.BackgroundColor = [0.502 0.502 0.502];
+            app.RunLiveSimulationButton.FontColor = [1 1 1];
+            app.RunLiveSimulationButton.Position = [31 141 248 54];
+            app.RunLiveSimulationButton.Text = 'Run Live Simulation';
+
+            % Create LiveRun
+            app.LiveRun = uitab(app.TabGroup);
+            app.LiveRun.Title = 'Live Run';
+            app.LiveRun.BackgroundColor = [0.7098 0.6667 0.6667];
+            app.LiveRun.HandleVisibility = 'off';
+
+            % Create WatchPanel
+            app.WatchPanel = uipanel(app.LiveRun);
+            app.WatchPanel.Title = 'Watch Panel';
+            app.WatchPanel.Visible = 'off';
+            app.WatchPanel.BackgroundColor = [0.8 0.8 0.8];
+            app.WatchPanel.Position = [171 48 260 221];
+
+            % Create FUELNOWLabel
+            app.FUELNOWLabel = uilabel(app.WatchPanel);
+            app.FUELNOWLabel.FontSize = 36;
+            app.FUELNOWLabel.FontWeight = 'bold';
+            app.FUELNOWLabel.Position = [37 129 197 48];
+            app.FUELNOWLabel.Text = 'FUEL NOW';
+
+            % Create Take25gcarbsLabel
+            app.Take25gcarbsLabel = uilabel(app.WatchPanel);
+            app.Take25gcarbsLabel.FontSize = 18;
+            app.Take25gcarbsLabel.FontWeight = 'bold';
+            app.Take25gcarbsLabel.FontColor = [0.0667 0.4431 0.7451];
+            app.Take25gcarbsLabel.Position = [69 98 134 24];
+            app.Take25gcarbsLabel.Text = 'Take 25g carbs';
+
+            % Create CloseButton
+            app.CloseButton = uibutton(app.WatchPanel, 'push');
+            app.CloseButton.ButtonPushedFcn = createCallbackFcn(app, @CloseButtonPushed, true);
+            app.CloseButton.Position = [147 25 100 23];
+            app.CloseButton.Text = 'Close';
+
+            % Create DoneButton
+            app.DoneButton = uibutton(app.WatchPanel, 'push');
+            app.DoneButton.ButtonPushedFcn = createCallbackFcn(app, @DoneButtonPushed, true);
+            app.DoneButton.BackgroundColor = [0 1 0];
+            app.DoneButton.FontColor = [0 0 0];
+            app.DoneButton.Position = [19 25 100 23];
+            app.DoneButton.Text = 'Done';
+
+            % Create PostExcercise
+            app.PostExcercise = uitab(app.TabGroup);
+            app.PostExcercise.Title = 'Post Excercise';
+            app.PostExcercise.BackgroundColor = [0.7098 0.6667 0.6667];
+            app.PostExcercise.ForegroundColor = [0.502 0.502 0.502];
+
+            % Create UIAxes_PR
+            app.UIAxes_PR = uiaxes(app.PostExcercise);
+            title(app.UIAxes_PR, 'Pace vs. Fueling Timing')
+            xlabel(app.UIAxes_PR, 'X')
+            ylabel(app.UIAxes_PR, 'Y')
+            zlabel(app.UIAxes_PR, 'Z')
+            app.UIAxes_PR.Position = [11 108 558 192];
+
+            % Create FuelLabel
+            app.FuelLabel = uilabel(app.PostExcercise);
+            app.FuelLabel.HorizontalAlignment = 'right';
+            app.FuelLabel.Position = [31 73 28 22];
+            app.FuelLabel.Text = 'Fuel';
+
+            % Create AdviceColor
+            app.AdviceColor = uilamp(app.PostExcercise);
+            app.AdviceColor.Position = [74 73 20 20];
+
+            % Create ActionBox
+            app.ActionBox = uitextarea(app.PostExcercise);
+            app.ActionBox.Position = [128 36 441 57];
+
+            % Create PastComparison
+            app.PastComparison = uitab(app.TabGroup);
+            app.PastComparison.Title = 'Past Comparison';
+            app.PastComparison.BackgroundColor = [0.7098 0.6667 0.6667];
+            app.PastComparison.ForegroundColor = [0.502 0.502 0.502];
+
+            % Create UIAxes_COM
+            app.UIAxes_COM = uiaxes(app.PastComparison);
+            title(app.UIAxes_COM, 'Pace Comparison')
+            xlabel(app.UIAxes_COM, 'X')
+            ylabel(app.UIAxes_COM, 'Y')
+            zlabel(app.UIAxes_COM, 'Z')
+            app.UIAxes_COM.Position = [10 18 571 262];
+
+            % Create FuturePrediction
+            app.FuturePrediction = uitab(app.TabGroup);
+            app.FuturePrediction.Title = 'Future Prediction';
+            app.FuturePrediction.BackgroundColor = [0.7098 0.6667 0.6667];
+            app.FuturePrediction.ForegroundColor = [0.502 0.502 0.502];
+
+            % Create UIAxes_PRED
+            app.UIAxes_PRED = uiaxes(app.FuturePrediction);
+            xlabel(app.UIAxes_PRED, 'X')
+            ylabel(app.UIAxes_PRED, 'Y')
+            zlabel(app.UIAxes_PRED, 'Z')
+            app.UIAxes_PRED.Position = [11 73 573 242];
+
+            % Create PREDLabel
+            app.PREDLabel = uilabel(app.FuturePrediction);
+            app.PREDLabel.Position = [11 10 160 43];
+
+            % Create AdviceTextArea
+            app.AdviceTextArea = uitextarea(app.FuturePrediction);
+            app.AdviceTextArea.Position = [203 5 378 52];
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = AppDT
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            % Execute the startup function
+            runStartupFcn(app, @startupFcn)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end
