@@ -5,8 +5,8 @@ WINDOW_PACE = 10;          % seconds voor moving average
 WINDOW_GLUC = 30;          % seconds voor moving average
 
 %% 2. reading data
-filename = 'athlete_swapped_data (1).csv';
-%filename= 'random_athlete_data (1).csv';
+filename = '.csv';
+%filename= '.csv';
 data = readtable(filename, 'PreserveVariableNames', true);
 % select variables
 time_str = data{:, 2}; 
@@ -94,4 +94,4 @@ end
 %% 6. export file
 final_table = table(time_str, distance, glucose_level, pace, trend_glucose_level,coach_state, glucose_needed);
 final_table2 = fillmissing(final_table, 'constant', 0, 'DataVariables', @isnumeric);
-writetable(final_table2, 'Digital_Twin_Final_swapped1.csv');
+writetable(final_table2, '.csv');
