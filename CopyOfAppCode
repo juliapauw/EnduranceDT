@@ -2,28 +2,28 @@ classdef AppDT < matlab.apps.AppBase
 
     % Properties that correspond to app components
     properties (Access = public)
-        UIFigure                       matlab.ui.Figure
-        TabGroup                       matlab.ui.container.TabGroup
-        Home                           matlab.ui.container.Tab
-        RunLiveSimulationButton        matlab.ui.control.Button
-        RunDataGenerateInsightsButton  matlab.ui.control.Button
-        LiveRun                        matlab.ui.container.Tab
-        WatchPanel                     matlab.ui.container.Panel
-        DoneButton                     matlab.ui.control.Button
-        CloseButton                    matlab.ui.control.Button
-        Take25gcarbsLabel              matlab.ui.control.Label
-        FUELNOWLabel                   matlab.ui.control.Label
-        PostExcercise                  matlab.ui.container.Tab
-        ActionBox                      matlab.ui.control.TextArea
-        AdviceColor                    matlab.ui.control.Lamp
-        FuelLabel                      matlab.ui.control.Label
-        UIAxes_PR                      matlab.ui.control.UIAxes
-        PastComparison                 matlab.ui.container.Tab
-        UIAxes_COM                     matlab.ui.control.UIAxes
-        FuturePrediction               matlab.ui.container.Tab
-        AdviceTextArea                 matlab.ui.control.TextArea
-        PREDLabel                      matlab.ui.control.Label
-        UIAxes_PRED                    matlab.ui.control.UIAxes
+        UIFigure                    matlab.ui.Figure
+        TabGroup                    matlab.ui.container.TabGroup
+        Home                        matlab.ui.container.Tab
+        LiveExerciseButton          matlab.ui.control.Button
+        DataGenerateInsightsButton  matlab.ui.control.Button
+        LiveExercise                matlab.ui.container.Tab
+        WatchPanel                  matlab.ui.container.Panel
+        DoneButton                  matlab.ui.control.Button
+        CloseButton                 matlab.ui.control.Button
+        Take25gcarbsLabel           matlab.ui.control.Label
+        FUELNOWLabel                matlab.ui.control.Label
+        PostExercise                matlab.ui.container.Tab
+        ActionBox                   matlab.ui.control.TextArea
+        AdviceColor                 matlab.ui.control.Lamp
+        FuelLabel                   matlab.ui.control.Label
+        UIAxes_PR                   matlab.ui.control.UIAxes
+        PastComparison              matlab.ui.container.Tab
+        UIAxes_COM                  matlab.ui.control.UIAxes
+        FuturePrediction            matlab.ui.container.Tab
+        AdviceTextArea              matlab.ui.control.TextArea
+        PREDLabel                   matlab.ui.control.Label
+        UIAxes_PRED                 matlab.ui.control.UIAxes
     end
 
 
@@ -46,9 +46,9 @@ function updateSimulatie(app)
 
         % check with threshold 70 mg/dl (changeable) for 10 rows
         if app.CurrentRow > 10
-            last_15_rows = app.SimData.glucose_level(app.CurrentRow-9 : app.CurrentRow);
+            last_10_rows = app.SimData.glucose_level(app.CurrentRow-9 : app.CurrentRow);
      
-            if mean(last_15_rows) < 100 && ~app.AlertActive
+            if mean(last_10_rows) < 100 && ~app.AlertActive
                 app.WatchPanel.Visible = 'on';
                 app.AlertActive = true;        
                 beep;
@@ -71,11 +71,11 @@ end
 
         end
 
-        % Button pushed function: RunDataGenerateInsightsButton
-        function RunDataGenerateInsightsButtonPushed(app, event)
+        % Button pushed function: DataGenerateInsightsButton
+        function DataGenerateInsightsButtonPushed(app, event)
             % 1. load data
 data = readtable('.csv');
-app.TabGroup.SelectedTab = app.PostExcercise;
+app.TabGroup.SelectedTab = app.PostExercise;
 
 %% post excercise
 % 1. Left axis
@@ -146,7 +146,7 @@ if prediction_value < glucose_threshold_low
     shortage = glucose_threshold_low - prediction_value;
     
     app.AdviceTextArea.Value = sprintf(['DT Simulation: If you keep your goal pace in the next activity, ' ...
-        'the predicted final value will be %.0f mg/dL. This is to low. \n\n' ...
+        'the predicted final value will be %.0f mg/dL. This is to low.' ...
         'Advice: Take %.0f gram extra carbs with you and divide this over the intensive pieces to avoid a dip.'], ...
         prediction_value, shortage);
 else
@@ -154,17 +154,17 @@ else
     app.PREDLabel.FontColor = [0.2 0.8 0.2]; %green
     
     app.AdviceTextArea.Value = sprintf(['DT Simulation: With an acceleration in the next activity' ...
-        'the glucose level expected to remain stable (expected final level: %.0f mg/dL). \n\n' ...
+        'the glucose level expected to remain stable (expected final level: %.0f mg/dL).' ...
         'Advice: Do not change your fuel strategy.'], ...
         prediction_value);
 end
 
         end
 
-        % Button pushed function: RunLiveSimulationButton
-        function RunLiveSimulationButtonPushed(app, event)
+        % Button pushed function: LiveExerciseButton
+        function LiveExerciseButtonPushed(app, event)
 
-    app.TabGroup.SelectedTab = app.LiveRun;
+    app.TabGroup.SelectedTab = app.LiveExercise;
 
     % 1. load data
     app.SimData = readtable('.csv');
@@ -209,47 +209,47 @@ end
             % Create UIFigure and hide until all components are created
             app.UIFigure = uifigure('Visible', 'off');
             app.UIFigure.Color = [0.9412 0.9137 0.9137];
-            app.UIFigure.Position = [100 100 640 480];
+            app.UIFigure.Position = [100 100 1093 795];
             app.UIFigure.Name = 'MATLAB App';
             app.UIFigure.Theme = 'light';
 
             % Create TabGroup
             app.TabGroup = uitabgroup(app.UIFigure);
-            app.TabGroup.Position = [20 40 594 337];
+            app.TabGroup.Position = [20 24 1049 668];
 
             % Create Home
             app.Home = uitab(app.TabGroup);
             app.Home.Title = 'Home';
             app.Home.BackgroundColor = [0.7098 0.6667 0.6667];
 
-            % Create RunDataGenerateInsightsButton
-            app.RunDataGenerateInsightsButton = uibutton(app.Home, 'push');
-            app.RunDataGenerateInsightsButton.ButtonPushedFcn = createCallbackFcn(app, @RunDataGenerateInsightsButtonPushed, true);
-            app.RunDataGenerateInsightsButton.BackgroundColor = [0.502 0.502 0.502];
-            app.RunDataGenerateInsightsButton.FontColor = [1 1 1];
-            app.RunDataGenerateInsightsButton.Position = [308 141 252 54];
-            app.RunDataGenerateInsightsButton.Text = 'Run Data & Generate Insights';
+            % Create DataGenerateInsightsButton
+            app.DataGenerateInsightsButton = uibutton(app.Home, 'push');
+            app.DataGenerateInsightsButton.ButtonPushedFcn = createCallbackFcn(app, @DataGenerateInsightsButtonPushed, true);
+            app.DataGenerateInsightsButton.BackgroundColor = [0.502 0.502 0.502];
+            app.DataGenerateInsightsButton.FontColor = [1 1 1];
+            app.DataGenerateInsightsButton.Position = [614 283 252 54];
+            app.DataGenerateInsightsButton.Text = 'Data & Generate Insights';
 
-            % Create RunLiveSimulationButton
-            app.RunLiveSimulationButton = uibutton(app.Home, 'push');
-            app.RunLiveSimulationButton.ButtonPushedFcn = createCallbackFcn(app, @RunLiveSimulationButtonPushed, true);
-            app.RunLiveSimulationButton.BackgroundColor = [0.502 0.502 0.502];
-            app.RunLiveSimulationButton.FontColor = [1 1 1];
-            app.RunLiveSimulationButton.Position = [31 141 248 54];
-            app.RunLiveSimulationButton.Text = 'Run Live Simulation';
+            % Create LiveExerciseButton
+            app.LiveExerciseButton = uibutton(app.Home, 'push');
+            app.LiveExerciseButton.ButtonPushedFcn = createCallbackFcn(app, @LiveExerciseButtonPushed, true);
+            app.LiveExerciseButton.BackgroundColor = [0.502 0.502 0.502];
+            app.LiveExerciseButton.FontColor = [1 1 1];
+            app.LiveExerciseButton.Position = [204 283 248 54];
+            app.LiveExerciseButton.Text = 'Live Exercise';
 
-            % Create LiveRun
-            app.LiveRun = uitab(app.TabGroup);
-            app.LiveRun.Title = 'Live Run';
-            app.LiveRun.BackgroundColor = [0.7098 0.6667 0.6667];
-            app.LiveRun.HandleVisibility = 'off';
+            % Create LiveExercise
+            app.LiveExercise = uitab(app.TabGroup);
+            app.LiveExercise.Title = 'Live Exercise';
+            app.LiveExercise.BackgroundColor = [0.7098 0.6667 0.6667];
+            app.LiveExercise.HandleVisibility = 'off';
 
             % Create WatchPanel
-            app.WatchPanel = uipanel(app.LiveRun);
+            app.WatchPanel = uipanel(app.LiveExercise);
             app.WatchPanel.Title = 'Watch Panel';
             app.WatchPanel.Visible = 'off';
             app.WatchPanel.BackgroundColor = [0.8 0.8 0.8];
-            app.WatchPanel.Position = [171 48 260 221];
+            app.WatchPanel.Position = [399 224 260 221];
 
             % Create FUELNOWLabel
             app.FUELNOWLabel = uilabel(app.WatchPanel);
@@ -280,33 +280,33 @@ end
             app.DoneButton.Position = [19 25 100 23];
             app.DoneButton.Text = 'Done';
 
-            % Create PostExcercise
-            app.PostExcercise = uitab(app.TabGroup);
-            app.PostExcercise.Title = 'Post Excercise';
-            app.PostExcercise.BackgroundColor = [0.7098 0.6667 0.6667];
-            app.PostExcercise.ForegroundColor = [0.502 0.502 0.502];
+            % Create PostExercise
+            app.PostExercise = uitab(app.TabGroup);
+            app.PostExercise.Title = 'Post Excercise';
+            app.PostExercise.BackgroundColor = [0.7098 0.6667 0.6667];
+            app.PostExercise.ForegroundColor = [0.502 0.502 0.502];
 
             % Create UIAxes_PR
-            app.UIAxes_PR = uiaxes(app.PostExcercise);
+            app.UIAxes_PR = uiaxes(app.PostExercise);
             title(app.UIAxes_PR, 'Pace vs. Fueling Timing')
             xlabel(app.UIAxes_PR, 'X')
             ylabel(app.UIAxes_PR, 'Y')
             zlabel(app.UIAxes_PR, 'Z')
-            app.UIAxes_PR.Position = [11 108 558 192];
+            app.UIAxes_PR.Position = [11 261 1011 370];
 
             % Create FuelLabel
-            app.FuelLabel = uilabel(app.PostExcercise);
+            app.FuelLabel = uilabel(app.PostExercise);
             app.FuelLabel.HorizontalAlignment = 'right';
-            app.FuelLabel.Position = [31 73 28 22];
+            app.FuelLabel.Position = [419 113 28 22];
             app.FuelLabel.Text = 'Fuel';
 
             % Create AdviceColor
-            app.AdviceColor = uilamp(app.PostExcercise);
-            app.AdviceColor.Position = [74 73 20 20];
+            app.AdviceColor = uilamp(app.PostExercise);
+            app.AdviceColor.Position = [462 113 20 20];
 
             % Create ActionBox
-            app.ActionBox = uitextarea(app.PostExcercise);
-            app.ActionBox.Position = [128 36 441 57];
+            app.ActionBox = uitextarea(app.PostExercise);
+            app.ActionBox.Position = [581 96 441 57];
 
             % Create PastComparison
             app.PastComparison = uitab(app.TabGroup);
@@ -320,7 +320,7 @@ end
             xlabel(app.UIAxes_COM, 'X')
             ylabel(app.UIAxes_COM, 'Y')
             zlabel(app.UIAxes_COM, 'Z')
-            app.UIAxes_COM.Position = [10 18 571 262];
+            app.UIAxes_COM.Position = [10 213 1012 398];
 
             % Create FuturePrediction
             app.FuturePrediction = uitab(app.TabGroup);
@@ -333,15 +333,15 @@ end
             xlabel(app.UIAxes_PRED, 'X')
             ylabel(app.UIAxes_PRED, 'Y')
             zlabel(app.UIAxes_PRED, 'Z')
-            app.UIAxes_PRED.Position = [11 73 573 242];
+            app.UIAxes_PRED.Position = [11 189 1011 422];
 
             % Create PREDLabel
             app.PREDLabel = uilabel(app.FuturePrediction);
-            app.PREDLabel.Position = [11 10 160 43];
+            app.PREDLabel.Position = [389 81 160 43];
 
             % Create AdviceTextArea
             app.AdviceTextArea = uitextarea(app.FuturePrediction);
-            app.AdviceTextArea.Position = [203 5 378 52];
+            app.AdviceTextArea.Position = [614 81 378 52];
 
             % Show the figure after all components are created
             app.UIFigure.Visible = 'on';
